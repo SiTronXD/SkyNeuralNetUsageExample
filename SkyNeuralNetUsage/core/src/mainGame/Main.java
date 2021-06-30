@@ -1,4 +1,6 @@
-package com.simon.skyneuralnetusage;
+package mainGame;
+
+import java.util.ArrayList;
 
 import com.badlogic.gdx.ApplicationAdapter;
 import com.badlogic.gdx.Gdx;
@@ -8,30 +10,42 @@ import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Pixmap.Format;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.utils.ScreenUtils;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 
+import neuralnet.NeuralNet;
+
 public class Main extends ApplicationAdapter 
 {
 	public static final int WIDTH = 1080;
 	public static final int HEIGHT = 2280;
+
+	private static OrthographicCamera cam;
+	private static Viewport gamePort;
 	
 	SpriteBatch batch;
+	BitmapFont font;
+
 	Texture drawingAreaTexture;
+	Texture bitmapFontTexture;
+	
+	NeuralNet neuralNet;
 	
 	int drawingAreaPosX;
 	int drawingAreaPosY;
 	
-	private static OrthographicCamera cam;
-	private static Viewport gamePort;
+	
+	boolean isDrawing;
 	
 	@Override
 	public void create () 
 	{
 		this.batch = new SpriteBatch();
 		this.drawingAreaTexture = new Texture("BlackBackground_1080x1080.jpg");
+		this.bitmapFontTexture = new Texture("bitmapFont.png");
 		
 		// Camera
 		cam = new OrthographicCamera();
@@ -40,9 +54,28 @@ public class Main extends ApplicationAdapter
 		cam.update();
 		gamePort = new FitViewport(WIDTH, HEIGHT, cam);
 		
+		// Font
+		String[] characterOrder = {
+			"abcdefghij",
+			"klmnopqrst",
+			"uvwxyz+-.'",
+			"0123456789",
+			"!?,<>:()#^",
+			"@ |£££££££"
+		};
+		this.font = new BitmapFont(this.bitmapFontTexture, characterOrder, new Vector2(16, 16), 2);
+		this.font.SetCharacterCutoutRectangle("'", new Rectangle(6, 0, 7, 16));
+		this.font.SetCharacterCutoutRectangle(" ", new Rectangle(0, 0, 10, 16));
 
+		// Drawing area
 		this.drawingAreaPosX = 0;
 		this.drawingAreaPosY = 700;
+		this.isDrawing = false;
+		
+		// Neural net
+		this.neuralNet = new NeuralNet("SkyNeuralNetSettings.ini");
+		
+		System.out.println("Neural Net Loaded!");
 	}
 
 	private float clamp(float minVal, float maxVal, float val)
@@ -58,8 +91,11 @@ public class Main extends ApplicationAdapter
 	private void drawOnArea()
 	{		
 		if(Gdx.input.isTouched())
-		{
+		{	
 			Vector2 touchPos = InputManager.getTouchPos(0);
+
+			if(touchPos.y > this.drawingAreaPosY)
+				this.isDrawing = true;
 			
 			// Make sure texture data is "prepared"
 			if(!this.drawingAreaTexture.getTextureData().isPrepared())
@@ -69,7 +105,7 @@ public class Main extends ApplicationAdapter
 			Pixmap pixmap = this.drawingAreaTexture.getTextureData().consumePixmap();
 			
 			// Write color
-			int r = 1080/8;
+			int r = 1080/16;
 			for (int x = -r; x < r; x++) 
 			{
 		        for (int y = -r; y < r; y++) 
@@ -100,14 +136,48 @@ public class Main extends ApplicationAdapter
 			this.drawingAreaTexture.dispose();
 			this.drawingAreaTexture = new Texture(pixmap, Format.RGB888, false);
 		}
+		else
+			this.isDrawing = false;
+	}
+	
+	private void checkForClear()
+	{
+		if(Gdx.input.isTouched() && !this.isDrawing)
+		{
+			Vector2 touchPos = InputManager.getTouchPos(0);
+			
+			if(touchPos.y < this.drawingAreaPosY)
+			{
+				// Make sure texture data is "prepared"
+				if(!this.drawingAreaTexture.getTextureData().isPrepared())
+					this.drawingAreaTexture.getTextureData().prepare();
+				
+				// Get data
+				Pixmap pixmap = this.drawingAreaTexture.getTextureData().consumePixmap();
+				
+				// Write color
+				for (int x = 0; x < WIDTH; x++) 
+				{
+			        for (int y = 0; y < HEIGHT; y++) 
+			        {	
+				        pixmap.setColor(Color.BLACK);
+				        pixmap.drawPixel(x, y);
+			        }
+			    }
+				
+				// Reset and write data
+				this.drawingAreaTexture.dispose();
+				this.drawingAreaTexture = new Texture(pixmap, Format.RGB888, false);
+			}
+		}
 	}
 	
 	@Override
 	public void render () 
 	{
 		// Update
-		InputManager.lookForEscape();
 		this.drawOnArea();
+		this.checkForClear();
 		
 		// Render
 		ScreenUtils.clear(0.3f, 0.3f, 0.3f, 1);
@@ -125,15 +195,23 @@ public class Main extends ApplicationAdapter
 			1080
 		);
 		
+		// Clear text
+		this.font.DrawString(this.batch, "Clear", new Vector2(WIDTH / 2, 350), new Vector2(10, 10));
+		
 		// ----- End -----
 		this.batch.end();
+		
+
+		InputManager.lookForEscape();
 	}
 	
 	@Override
 	public void dispose () 
 	{
 		this.batch.dispose();
+		
 		this.drawingAreaTexture.dispose();
+		this.bitmapFontTexture.dispose();
 	}
 	
 	public void resize(int w, int h) 
