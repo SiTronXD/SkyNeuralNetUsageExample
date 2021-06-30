@@ -58,11 +58,25 @@ public class NeuralNet
 	
 	public void forwardProp(ArrayList<Double> inputValues)
 	{
+		// Set input values
 		this.layers.get(0).setInputWeights(inputValues);
+		
+		// Calculate output values in hidden/output layers
+		for(int i = 1; i < this.layers.size(); ++i)
+		{
+			this.layers.get(i).calcOutputValues(
+				this.layers.get(i - 1),
+				i == this.layers.size() - 1
+			);
+		}
 	}
 	
-	public void getOutputs(ArrayList<Double> outputValues)
+	public void getOutputs(ArrayList<Double> exportedOutputValues)
 	{
-		outputValues.add(1337.0);
+		ArrayList<Neuron> outputNeurons = this.layers.get(this.layers.size()-1).getNeurons();
+		
+		// Add output values into exportedOutputValues
+		for(int i = 0; i < outputNeurons.size() - 1; ++i)
+			exportedOutputValues.add(outputNeurons.get(i).getOutputValue());
 	}
 }

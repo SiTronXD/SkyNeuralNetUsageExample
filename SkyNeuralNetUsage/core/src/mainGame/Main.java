@@ -76,16 +76,43 @@ public class Main extends ApplicationAdapter
 		this.neuralNet = new NeuralNet("SkyNeuralNetSettings.ini");
 		
 		System.out.println("Neural Net Loaded!");
+		
+		this.askNeuralNetwork();
 	}
 
-	private float clamp(float minVal, float maxVal, float val)
+	private void askNeuralNetwork()
 	{
-		if(val < minVal)
-			return minVal;
-		else if(val > maxVal)
-			return maxVal;
+		// Input
+		ArrayList<Double> inputs = new ArrayList<Double>();
+		Texture tempTexture = new Texture("004998-num1.png");
+		if(!tempTexture.getTextureData().isPrepared())
+			tempTexture.getTextureData().prepare();
+		Pixmap pixmap = tempTexture.getTextureData().consumePixmap();
+		for(int y = 0; y < tempTexture.getHeight(); ++y)
+		{
+			for(int x = 0; x < tempTexture.getWidth(); ++x)
+			{
+				Color tempCol = new Color(pixmap.getPixel(x, y));
+				
+				// Grey-scale value from alpha channel
+				double interpretedColor = tempCol.a;
+				
+				inputs.add(interpretedColor);
+			}
+		}
+		tempTexture.dispose();
 		
-		return val;
+		this.neuralNet.forwardProp(inputs);
+		
+		// Get output
+		ArrayList<Double> outputs = new ArrayList<Double>();
+		this.neuralNet.getOutputs(outputs);
+		
+		System.out.println("Outputs:");
+		for(int i = 0; i < outputs.size(); ++i)
+		{
+			System.out.println("i: " + i + "   " + outputs.get(i));
+		}
 	}
 	
 	private void drawOnArea()
@@ -212,6 +239,16 @@ public class Main extends ApplicationAdapter
 		
 		this.drawingAreaTexture.dispose();
 		this.bitmapFontTexture.dispose();
+	}
+	
+	private float clamp(float minVal, float maxVal, float val)
+	{
+		if(val < minVal)
+			return minVal;
+		else if(val > maxVal)
+			return maxVal;
+		
+		return val;
 	}
 	
 	public void resize(int w, int h) 

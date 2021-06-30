@@ -10,8 +10,8 @@ public class InputManager
 	public static void lookForEscape()
 	{
 		// Exit when escape is pressed, for debugging
-		/*if(Gdx.input.isKeyJustPressed(Keys.ESCAPE))
-			Gdx.app.exit();*/
+		if(Gdx.input.isKeyJustPressed(Keys.ESCAPE))
+			Gdx.app.exit();
 	}
 	
 	public static Vector2 getTouchPos(int touchIndex)

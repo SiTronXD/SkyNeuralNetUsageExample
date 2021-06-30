@@ -8,12 +8,14 @@ public class Neuron
 	double outputValue;
 	ArrayList<Double> outputWeights;
 	
-	public Neuron()
+	public Neuron(double initialOutputValue)
 	{
+		this.outputValue = initialOutputValue;
+		
 		this.outputWeights = new ArrayList<Double>();
 	}
 	
-	void setNumWeights(int numWeights)
+	public void setNumWeights(int numWeights)
 	{
 		Random random = new Random();
 		
@@ -32,4 +34,7 @@ public class Neuron
 	{
 		this.outputValue = outputValue;
 	}
+	
+	public double getOutputValue() { return this.outputValue; }
+	public double getOutputWeight(int index) { return this.outputWeights.get(index); }
 }
