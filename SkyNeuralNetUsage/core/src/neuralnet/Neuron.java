@@ -22,4 +22,14 @@ public class Neuron
 		
 		this.outputWeights.trimToSize();
 	}
+	
+	public void setWeight(int weightIndex, double weightValue) 
+	{
+		this.outputWeights.set(weightIndex, weightValue);
+	}
+	
+	public void setOutputValue(double outputValue)
+	{
+		this.outputValue = outputValue;
+	}
 }
