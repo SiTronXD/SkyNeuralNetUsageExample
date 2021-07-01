@@ -14,7 +14,7 @@ public class NeuralNet
 		this.layers = new ArrayList<Layer>();
 		
 		// Read file
-		FileHandle handle = Gdx.files.local(neuralNetFilePath);
+		FileHandle handle = Gdx.files.internal(neuralNetFilePath);
 		String text = handle.readString();
 		String lines[] = text.split("\\r?\\n");
 		

@@ -22,6 +22,8 @@ public class Main extends ApplicationAdapter
 {
 	public static final int WIDTH = 1080;
 	public static final int HEIGHT = 2280;
+	
+	private static final int PEN_RADIUS = 50;
 
 	private static OrthographicCamera cam;
 	private static Viewport gamePort;
@@ -30,6 +32,7 @@ public class Main extends ApplicationAdapter
 	BitmapFont font;
 
 	Texture drawingAreaTexture;
+	Texture downsampledDrawingAreaTexture;
 	Texture bitmapFontTexture;
 	
 	NeuralNet neuralNet;
@@ -37,6 +40,7 @@ public class Main extends ApplicationAdapter
 	int drawingAreaPosX;
 	int drawingAreaPosY;
 	
+	int currentAIGuess;
 	
 	boolean isDrawing;
 	
@@ -45,6 +49,7 @@ public class Main extends ApplicationAdapter
 	{
 		this.batch = new SpriteBatch();
 		this.drawingAreaTexture = new Texture("BlackBackground_1080x1080.jpg");
+		this.downsampledDrawingAreaTexture = new Texture("BlackBackground_28x28.jpg");
 		this.bitmapFontTexture = new Texture("bitmapFont.png");
 		
 		// Camera
@@ -55,13 +60,14 @@ public class Main extends ApplicationAdapter
 		gamePort = new FitViewport(WIDTH, HEIGHT, cam);
 		
 		// Font
-		String[] characterOrder = {
+		String[] characterOrder = 
+			{
 			"abcdefghij",
 			"klmnopqrst",
 			"uvwxyz+-.'",
 			"0123456789",
 			"!?,<>:()#^",
-			"@ |£££££££"
+			"@*% |XXXXX"
 		};
 		this.font = new BitmapFont(this.bitmapFontTexture, characterOrder, new Vector2(16, 16), 2);
 		this.font.SetCharacterCutoutRectangle("'", new Rectangle(6, 0, 7, 16));
@@ -72,35 +78,79 @@ public class Main extends ApplicationAdapter
 		this.drawingAreaPosY = 700;
 		this.isDrawing = false;
 		
+		this.currentAIGuess = -1;
+		
 		// Neural net
 		this.neuralNet = new NeuralNet("SkyNeuralNetSettings.ini");
-		
-		System.out.println("Neural Net Loaded!");
-		
-		this.askNeuralNetwork();
 	}
 
+	private void createDownsampledTexture()
+	{
+		if(!this.drawingAreaTexture.getTextureData().isPrepared())
+			this.drawingAreaTexture.getTextureData().prepare();
+		Pixmap pixmap = this.drawingAreaTexture.getTextureData().consumePixmap();
+		
+		if(!this.downsampledDrawingAreaTexture.getTextureData().isPrepared())
+			this.downsampledDrawingAreaTexture.getTextureData().prepare();
+		Pixmap newPixmap = this.downsampledDrawingAreaTexture.getTextureData().consumePixmap();
+		
+		for(int y = 0; y < this.downsampledDrawingAreaTexture.getHeight(); ++y)
+		{
+			for(int x = 0; x < this.downsampledDrawingAreaTexture.getWidth(); ++x)
+			{
+				// Not an integer size, but it's fine for this purpose
+				int sideSize = this.drawingAreaTexture.getWidth() / 
+						this.downsampledDrawingAreaTexture.getWidth();
+				int numSamples = 0;
+				double result = 0.0;
+				
+				for(int ty = 0; ty < sideSize; ++ty)
+				{
+					for(int tx = 0; tx < sideSize; ++tx)
+					{
+						Color col = new Color(pixmap.getPixel(x * sideSize + tx, y * sideSize + ty));
+						
+						result += col.r;
+						numSamples++;
+					}
+				}
+				
+				result /= (double) numSamples;
+				
+				// Update color
+				float floatResult = (float) result;
+				Color newCol = new Color(floatResult, floatResult, floatResult, 1.0f);
+				newPixmap.setColor(newCol);
+				newPixmap.drawPixel(x, y);
+			}
+		}
+		
+		this.downsampledDrawingAreaTexture.dispose();
+		this.downsampledDrawingAreaTexture = new Texture(newPixmap, Format.RGB888, false);
+	}
+	
 	private void askNeuralNetwork()
 	{
+		// Create downsampled texture for input
+		this.createDownsampledTexture();
+		
 		// Input
 		ArrayList<Double> inputs = new ArrayList<Double>();
-		Texture tempTexture = new Texture("004998-num1.png");
-		if(!tempTexture.getTextureData().isPrepared())
-			tempTexture.getTextureData().prepare();
-		Pixmap pixmap = tempTexture.getTextureData().consumePixmap();
-		for(int y = 0; y < tempTexture.getHeight(); ++y)
+		if(!this.downsampledDrawingAreaTexture.getTextureData().isPrepared())
+			this.downsampledDrawingAreaTexture.getTextureData().prepare();
+		Pixmap pixmap = this.downsampledDrawingAreaTexture.getTextureData().consumePixmap();
+		for(int y = 0; y < this.downsampledDrawingAreaTexture.getHeight(); ++y)
 		{
-			for(int x = 0; x < tempTexture.getWidth(); ++x)
+			for(int x = 0; x < this.downsampledDrawingAreaTexture.getWidth(); ++x)
 			{
 				Color tempCol = new Color(pixmap.getPixel(x, y));
 				
-				// Grey-scale value from alpha channel
-				double interpretedColor = tempCol.a;
+				// Grey-scale value from red channel
+				double interpretedColor = tempCol.r;
 				
 				inputs.add(interpretedColor);
 			}
 		}
-		tempTexture.dispose();
 		
 		this.neuralNet.forwardProp(inputs);
 		
@@ -108,10 +158,17 @@ public class Main extends ApplicationAdapter
 		ArrayList<Double> outputs = new ArrayList<Double>();
 		this.neuralNet.getOutputs(outputs);
 		
-		System.out.println("Outputs:");
+		// Get best guess
+		double currentBestGuess = -99999.99;
 		for(int i = 0; i < outputs.size(); ++i)
 		{
-			System.out.println("i: " + i + "   " + outputs.get(i));
+			double currOutput = outputs.get(i); 
+			
+			if(currOutput > currentBestGuess)
+			{
+				currentBestGuess = currOutput;
+				this.currentAIGuess = i; 
+			}
 		}
 	}
 	
@@ -132,10 +189,9 @@ public class Main extends ApplicationAdapter
 			Pixmap pixmap = this.drawingAreaTexture.getTextureData().consumePixmap();
 			
 			// Write color
-			int r = 1080/16;
-			for (int x = -r; x < r; x++) 
+			for (int x = -PEN_RADIUS; x < PEN_RADIUS; x++) 
 			{
-		        for (int y = -r; y < r; y++) 
+		        for (int y = -PEN_RADIUS; y < PEN_RADIUS; y++) 
 		        {		        	
 		        	int tempX = (int) (touchPos.x - drawingAreaPosX + x);
 		        	int tempY = (int) (HEIGHT - touchPos.y - (HEIGHT - drawingAreaPosY - this.drawingAreaTexture.getHeight()) + y);
@@ -144,7 +200,7 @@ public class Main extends ApplicationAdapter
 		        		continue;
 		        	
 		        	float length = (float) Math.sqrt(x*x + y*y);
-		        	float addCol = 1.0f * (length <= r ? 1.0f : 0.0f);
+		        	float addCol = 1.0f * (length <= PEN_RADIUS ? 1.0f : 0.0f);
 			        Color col = new Color(pixmap.getPixel(tempX, tempY));
 			        col.r += addCol;
 			        col.g += addCol;
@@ -164,7 +220,36 @@ public class Main extends ApplicationAdapter
 			this.drawingAreaTexture = new Texture(pixmap, Format.RGB888, false);
 		}
 		else
+		{
+			if(this.isDrawing)
+				this.askNeuralNetwork();
+			
 			this.isDrawing = false;
+		}
+	}
+	
+	private void clearTexture(Texture textureToClear)
+	{
+		// Make sure texture data is "prepared"
+		if(!textureToClear.getTextureData().isPrepared())
+			textureToClear.getTextureData().prepare();
+		
+		// Get data
+		Pixmap pixmap = textureToClear.getTextureData().consumePixmap();
+		
+		// Write color
+		for (int x = 0; x < WIDTH; x++) 
+		{
+	        for (int y = 0; y < HEIGHT; y++) 
+	        {	
+		        pixmap.setColor(Color.BLACK);
+		        pixmap.drawPixel(x, y);
+	        }
+	    }
+		
+		// Reset and write data
+		textureToClear.dispose();
+		textureToClear = new Texture(pixmap, Format.RGB888, false);
 	}
 	
 	private void checkForClear()
@@ -175,26 +260,11 @@ public class Main extends ApplicationAdapter
 			
 			if(touchPos.y < this.drawingAreaPosY)
 			{
-				// Make sure texture data is "prepared"
-				if(!this.drawingAreaTexture.getTextureData().isPrepared())
-					this.drawingAreaTexture.getTextureData().prepare();
+				this.clearTexture(this.drawingAreaTexture);
+				this.clearTexture(this.downsampledDrawingAreaTexture);
 				
-				// Get data
-				Pixmap pixmap = this.drawingAreaTexture.getTextureData().consumePixmap();
-				
-				// Write color
-				for (int x = 0; x < WIDTH; x++) 
-				{
-			        for (int y = 0; y < HEIGHT; y++) 
-			        {	
-				        pixmap.setColor(Color.BLACK);
-				        pixmap.drawPixel(x, y);
-			        }
-			    }
-				
-				// Reset and write data
-				this.drawingAreaTexture.dispose();
-				this.drawingAreaTexture = new Texture(pixmap, Format.RGB888, false);
+				// Remove AI guess
+				this.currentAIGuess = -1;
 			}
 		}
 	}
@@ -221,9 +291,33 @@ public class Main extends ApplicationAdapter
 			1080, 
 			1080
 		);
+		if(!this.isDrawing)
+		{
+			this.batch.draw(
+				this.downsampledDrawingAreaTexture, 
+				this.drawingAreaPosX, 
+				this.drawingAreaPosY, 
+				1080, 
+				1080
+			);
+		}
 		
 		// Clear text
 		this.font.DrawString(this.batch, "Clear", new Vector2(WIDTH / 2, 350), new Vector2(10, 10));
+		
+		// Guess text
+		this.font.DrawString(
+			this.batch, 
+			"AI Guess:", 
+			new Vector2(WIDTH / 2, HEIGHT - 150), 
+			new Vector2(10, 10)
+		);
+		this.font.DrawString(
+			this.batch, 
+			this.currentAIGuess < 0 || this.isDrawing ? "..." : "" + this.currentAIGuess, 
+			new Vector2(WIDTH / 2, HEIGHT - 370), 
+			new Vector2(10, 10)
+		);
 		
 		// ----- End -----
 		this.batch.end();
@@ -238,6 +332,7 @@ public class Main extends ApplicationAdapter
 		this.batch.dispose();
 		
 		this.drawingAreaTexture.dispose();
+		this.downsampledDrawingAreaTexture.dispose();
 		this.bitmapFontTexture.dispose();
 	}
 	
