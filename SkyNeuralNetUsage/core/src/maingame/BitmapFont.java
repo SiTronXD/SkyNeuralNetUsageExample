@@ -1,4 +1,4 @@
-package mainGame;
+package maingame;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
