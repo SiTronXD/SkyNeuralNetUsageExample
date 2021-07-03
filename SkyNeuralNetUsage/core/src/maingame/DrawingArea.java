@@ -3,11 +3,13 @@ package maingame;
 import java.util.ArrayList;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input.Keys;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.Pixmap.Format;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Vector;
 import com.badlogic.gdx.math.Vector2;
 
 public class DrawingArea 
@@ -16,13 +18,15 @@ public class DrawingArea
 
 	private Texture drawingAreaTexture;
 	private Texture downsampledDrawingAreaTexture;
+
+	private Main mainGame;
+	
+	private Vector2 lastDrawPos;
 	
 	private int drawingAreaPosX;
 	private int drawingAreaPosY;
 
 	private boolean isDrawing;
-	
-	private Main mainGame;
 	
 	public DrawingArea(Main mainGame)
 	{
@@ -35,6 +39,8 @@ public class DrawingArea
 		this.drawingAreaPosX = 0;
 		this.drawingAreaPosY = 700;
 		this.isDrawing = false;
+		
+		lastDrawPos = new Vector2(-99, -99);
 	}
 	
 	private void createDownsampledTexture()
@@ -106,6 +112,106 @@ public class DrawingArea
 		textureToClear = new Texture(pixmap, Format.RGB888, false);
 	}
 	
+	// Get distance from point to line segment
+	float distToLineSeg(Vector2 p, Vector2 a, Vector2 b)
+	{
+		// Get deltas
+		Vector2 pb = new Vector2(p).sub(b);
+	    Vector2 ab = new Vector2(a).sub(b);
+	    
+	    // Project point onto line segment
+	    float t = Vector2.dot(pb.x, pb.y, ab.x, ab.y) / Vector2.dot(ab.x, ab.y, ab.x, ab.y);
+	    t = this.clamp(t, 0.0f, 1.0f);
+	    
+	    // Interpolate to find closest point
+	    Vector2 closestPoint = a.scl(t).add(b.scl((1.0f - t)));
+	    
+	    // Length between point and closest point
+	    Vector2 delta = new Vector2(closestPoint).sub(p);
+	    return Vector2.len(delta.x, delta.y);
+	}
+	
+	private Vector2 viewportToDrawingAreaPos(Vector2 inputPos)
+	{
+		return this.viewportToDrawingAreaPos(inputPos.x, inputPos.y); 
+	}
+	private Vector2 viewportToDrawingAreaPos(float x, float y)
+	{
+		Vector2 newPos = new Vector2(
+			x - drawingAreaPosX, 
+			this.drawingAreaTexture.getHeight() - (y - drawingAreaPosY)
+		);
+		return newPos; 
+	}
+	
+	private void drawCircle(Vector2 position, Pixmap pixmap)
+	{
+		for (int x = -PEN_RADIUS; x < PEN_RADIUS; x++) 
+		{
+	        for (int y = -PEN_RADIUS; y < PEN_RADIUS; y++) 
+	        {	
+	        	Vector2 tempPos = viewportToDrawingAreaPos(x + position.x, y + position.y);
+
+	        	// Make sure the position is within the drawing area
+	        	if(	tempPos.x < 0 || tempPos.x > this.drawingAreaTexture.getWidth() - 1 || 
+	        		tempPos.y < 0 || tempPos.y > this.drawingAreaTexture.getHeight() - 1)
+		        		continue;
+	        	
+	        	// Add color, if the pixel is within the circle
+	        	float addCol = x*x + y*y <= PEN_RADIUS * PEN_RADIUS ? 1.0f : 0.0f;
+		        Color col = new Color(pixmap.getPixel((int) tempPos.x, (int) tempPos.y));
+		        col.r += addCol;
+		        col.g += addCol;
+		        col.b += addCol;
+		        
+		        // Clamp and set color
+		        col.r = this.clamp(col.r, 0.0f, 1.0f);
+		        col.g = this.clamp(col.g, 0.0f, 1.0f);
+		        col.b = this.clamp(col.b, 0.0f, 1.0f);
+		        pixmap.setColor(col);
+		        pixmap.drawPixel((int) tempPos.x, (int) tempPos.y);
+	        }
+	    }
+	}
+	
+	private void drawLine(Vector2 position1, Vector2 position2, Pixmap pixmap)
+	{
+		// Bounds to contain line
+		Vector2 minPos = new Vector2(Math.min(position1.x, position2.x), Math.min(position1.y, position2.y)).sub(PEN_RADIUS, PEN_RADIUS);
+		Vector2 maxPos = new Vector2(Math.max(position1.x, position2.x), Math.max(position1.y, position2.y)).add(PEN_RADIUS, PEN_RADIUS);
+		
+		for (int x = 0; x < maxPos.x - minPos.x; ++x) 
+		{
+	        for (int y = 0; y < maxPos.y - minPos.y; ++y) 
+	        {		        	
+	        	Vector2 tempPos = viewportToDrawingAreaPos(x + minPos.x, y + minPos.y);
+	        	
+	        	// Make sure the position is within the drawing area
+	        	if(	tempPos.x < 0 || tempPos.x > this.drawingAreaTexture.getWidth() - 1 || 
+	        		tempPos.y < 0 || tempPos.y > this.drawingAreaTexture.getHeight() - 1)
+	        		continue;
+	        	
+	        	// Add color, if the pixel is within the line segment
+	        	float addCol = this.distToLineSeg(
+	        		tempPos, 
+        			this.viewportToDrawingAreaPos(position1), 
+        			this.viewportToDrawingAreaPos(position2)
+        			) <= PEN_RADIUS ? 1.0f : 0.0f;
+		        Color col = new Color(pixmap.getPixel((int) tempPos.x, (int) tempPos.y));
+		        col.r += addCol;
+		        col.g += addCol;
+		        col.b += addCol;
+		        
+		        // Clamp and set color
+		        col.r = this.clamp(col.r, 0.0f, 1.0f);
+		        col.g = this.clamp(col.g, 0.0f, 1.0f);
+		        col.b = this.clamp(col.b, 0.0f, 1.0f);
+		        pixmap.setColor(col);
+		        pixmap.drawPixel((int) tempPos.x, (int) tempPos.y);
+	        }
+	    }
+	}
+	
 	public void drawingOnArea()
 	{		
 		if(Gdx.input.isTouched())
@@ -123,37 +229,16 @@ public class DrawingArea
 			Pixmap pixmap = this.drawingAreaTexture.getTextureData().consumePixmap();
 			
 			// Write color
-			for (int x = -PEN_RADIUS; x < PEN_RADIUS; x++) 
-			{
-		        for (int y = -PEN_RADIUS; y < PEN_RADIUS; y++) 
-		        {		        	
-		        	int tempX = (int) (touchPos.x - drawingAreaPosX + x);
-		        	int tempY = (int) (Main.getWindowHeight() - touchPos.y - (Main.getWindowHeight() - drawingAreaPosY - this.drawingAreaTexture.getHeight()) + y);
-		        	
-		        	// The drawing area size is WIDTH x WIDTH
-		        	if(tempX < 0 || tempX > Main.getWindowWidth() - 1 || tempY < 0 || tempY > Main.getWindowWidth() - 1)
-		        		continue;
-		        	
-		        	// Add color, if the pixel is within the circle
-		        	float length = (float) Math.sqrt(x*x + y*y);
-		        	float addCol = 1.0f * (length <= PEN_RADIUS ? 1.0f : 0.0f);
-			        Color col = new Color(pixmap.getPixel(tempX, tempY));
-			        col.r += addCol;
-			        col.g += addCol;
-			        col.b += addCol;
-			        
-			        // Clamp and set color
-			        col.r = this.clamp(0.0f, 1.0f, col.r);
-			        col.g = this.clamp(0.0f, 1.0f, col.g);
-			        col.b = this.clamp(0.0f, 1.0f, col.b);
-			        pixmap.setColor(col);
-			        pixmap.drawPixel(tempX, tempY);
-		        }
-		    }
+			if(lastDrawPos.x < 0.0)
+				this.drawCircle(touchPos, pixmap);
+			else
+				this.drawLine(touchPos, this.lastDrawPos, pixmap);
 			
 			// Reset and write data
 			this.drawingAreaTexture.dispose();
 			this.drawingAreaTexture = new Texture(pixmap, Format.RGB888, false);
+
+			this.lastDrawPos = touchPos;
 		}
 		else
 		{
@@ -161,6 +246,8 @@ public class DrawingArea
 				this.mainGame.askNeuralNetwork();
 			
 			this.isDrawing = false;
+			
+			lastDrawPos = new Vector2(-99, -99);
 		}
 	}
 	
@@ -244,7 +331,7 @@ public class DrawingArea
 		return inputs;
 	}
 	
-	public float clamp(float minVal, float maxVal, float val)
+	public float clamp(float val, float minVal, float maxVal)
 	{
 		if(val < minVal)
 			return minVal;

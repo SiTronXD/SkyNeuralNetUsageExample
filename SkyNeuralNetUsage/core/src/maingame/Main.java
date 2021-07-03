@@ -67,10 +67,9 @@ public class Main extends ApplicationAdapter
 		this.font.SetCharacterCutoutRectangle("'", new Rectangle(6, 0, 7, 16));
 		this.font.SetCharacterCutoutRectangle(" ", new Rectangle(0, 0, 10, 16));
 		
-		this.currentAIGuess = -1;
-		
-		// Neural net
+		// Neural net, responsible for forward propagation
 		this.neuralNet = new NeuralNet("SkyNeuralNetSettings.ini");
+		this.currentAIGuess = -1;
 	}
 
 	public void askNeuralNetwork()
