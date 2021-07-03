@@ -280,7 +280,7 @@ public class DrawingArea
 		);
 		
 		// Show downsampled drawing area
-		if(!this.isDrawing)
+		/*if(!this.isDrawing)
 		{
 			batch.draw(
 				this.downsampledDrawingAreaTexture, 
@@ -289,7 +289,7 @@ public class DrawingArea
 				1080, 
 				1080
 			);
-		}
+		}*/
 
 		// Clear text
 		font.DrawString(batch, "Clear", new Vector2(Main.getWindowWidth() / 2, 350), new Vector2(10, 10));
