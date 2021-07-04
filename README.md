@@ -7,7 +7,7 @@ The network itself works fairly well, often times being able to see the numbers 
 
 # Screenshots
 <p align="center">
-  <img width="300" height="634" src="https://github.com/SiTronXD/SkyNeuralNetUsageExample/blob/main/SkyNeuralNetUsage/android/assets/Showcase1.png">
-  <img width="300" height="634" src="https://github.com/SiTronXD/SkyNeuralNetUsageExample/blob/main/SkyNeuralNetUsage/android/assets/Showcase2.png">
-  <img width="300" height="634" src="https://github.com/SiTronXD/SkyNeuralNetUsageExample/blob/main/SkyNeuralNetUsage/android/assets/Showcase3.png">
+  <img width="280" height="620" src="https://github.com/SiTronXD/SkyNeuralNetUsageExample/blob/main/SkyNeuralNetUsage/android/assets/Showcase1.png">
+  <img width="280" height="620" src="https://github.com/SiTronXD/SkyNeuralNetUsageExample/blob/main/SkyNeuralNetUsage/android/assets/Showcase2.png">
+  <img width="280" height="620" src="https://github.com/SiTronXD/SkyNeuralNetUsageExample/blob/main/SkyNeuralNetUsage/android/assets/Showcase3.png">
 </p>
